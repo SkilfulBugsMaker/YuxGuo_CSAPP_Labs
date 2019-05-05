@@ -64,38 +64,38 @@
 #define MASK_PN 0xfffffffd 
 
 #define LEVEL_0 (32)
-#define LEVEL_1 (100)
-#define LEVEL_2 (300)
-#define LEVEL_3 (500)
-#define LEVEL_4 (700)
-#define LEVEL_5 (900)
-#define LEVEL_6 (1100)
-#define LEVEL_7 (1500)
-#define LEVEL_8 (2000)
-#define LEVEL_9 (2500)
-#define LEVEL_10 (3000)
-#define LEVEL_11 (4000)
+#define LEVEL_1 (64)
+#define LEVEL_2 (128)
+#define LEVEL_3 (256)
+#define LEVEL_4 (512)
+#define LEVEL_5 (1024)
+#define LEVEL_6 (1536)
+#define LEVEL_7 (2048)
+#define LEVEL_8 (3072)
+#define LEVEL_9 (4096)
+#define LEVEL_10 (8192)
+#define LEVEL_11 (16384)
 #define NUMBERS 13
+
+
 /*********************************************************/
-
-team_t team={
-
-	"gyx",
-	"gyx_shuai",
-	"@mail.ustc.edu.cn",
-	"",
-	""
-};
-
 
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
-static void place(void *bp, size_t asize);
+static void *place(void *bp, size_t asize);
 static void *find_fit(size_t asize);
 static void insert_node_level(char *bp);
 static int which_level (size_t asize);
+
+
+
+static int first_malloc;
+static int first_extend;
+static int mode;
+
 static char *heap_listp = NULL;
 static char *start_p[NUMBERS];
+
 
 
 ///
@@ -134,6 +134,8 @@ static int which_level (size_t asize)
  */
 int mm_init(void)
 {
+    first_malloc=1;
+    first_extend=1;
     char *bp;
     if ((heap_listp = mem_sbrk(16 * WSIZE)) == (void *) -1)
         return -1;
@@ -161,10 +163,12 @@ int mm_init(void)
     PUT(heap_listp + (15*WSIZE), PACK(0, PU_U));     //lenth 0, previous not used
 
     heap_listp += (14*WSIZE);//heap start addr
-    if ((bp = extend_heap(2*CHUNKSIZE/WSIZE)) == NULL)
+    if ((bp = extend_heap(2*(CHUNKSIZE+8)/WSIZE)) == NULL)
         return -1;
     return 0;
 }// Done!
+
+
 
 static void *extend_heap(size_t words)
 {
@@ -203,8 +207,23 @@ static void *extend_heap(size_t words)
  */
 void *mm_malloc(size_t size)
 {
-    
     //确定要malloc的具体大小，调用findfit查找，再用place放置
+    if (first_malloc)
+    {
+        if (size == 64 )
+        {
+            mode =1;
+        }
+        else if (size == 16)
+        {
+            mode =2;
+        }
+        else 
+        {
+            mode =0;
+        }
+        first_malloc=0;
+    }
     size_t asize;
     size_t extendsize;
     char *bp;
@@ -223,19 +242,33 @@ void *mm_malloc(size_t size)
     
     if ((bp = find_fit(asize)) != NULL)
     {
-        place(bp, asize);
-        return bp;
+        return place(bp, asize);
     }//if can find a fit block
 
-    extendsize = MAX(asize, CHUNKSIZE);
+    if (first_extend && mode==1)
+    {
+        extendsize = 1024000-2*CHUNKSIZE-16;
+        first_extend=0;
+    }
+    else if (first_extend && mode==2)
+    {
+        extendsize = 512000-2*CHUNKSIZE-16;
+        first_extend=0;
+    }
+    else
+    {
+        extendsize = MAX(asize, CHUNKSIZE);
+    }
+    
     
     //otherwise it will expand the heap range
     if (extend_heap(extendsize/WSIZE) == NULL)
         return NULL;
     bp = find_fit(asize);
-    place(bp, asize);
-    return bp;
+    return place(bp, asize);
 }
+
+
 
 
 
@@ -378,7 +411,7 @@ static void insert_node_level(char *bp)
     size_t size=GET_SIZE(HDRP(bp));
     int level = which_level(size);
     
-    char *p_tmp = GET_SUCC(start_p[level]);
+    /*char *p_tmp = GET_SUCC(start_p[level]);
     if (p_tmp)
     {
         PUT_SUCC(bp,p_tmp);
@@ -390,15 +423,15 @@ static void insert_node_level(char *bp)
     {
         PUT_SUCC(start_p[level],bp);
         PUT_PREV(bp,start_p[level]);
-    }
-    /*
+    }*/
+    
     char *p=NULL;
     char *p_prev=start_p[level];
 
-    for (p = GET_SUCC(start_p[level]); p ;p=GET_SUCC(p))
+    for (p = GET_SUCC(start_p[level]); p!=NULL ;p=GET_SUCC(p))
     {
         p_prev=GET_PREV(p);
-        if ((size-GET_SIZE(p))>100)
+        if (size<GET_SIZE(p))
             continue;
         else
         {
@@ -409,38 +442,65 @@ static void insert_node_level(char *bp)
             return;
         }
     }
+    if (p_prev != start_p[level])
+    {
+        p_prev = GET_SUCC(p_prev);
+    }
     PUT_SUCC(p_prev,bp);
-    PUT_PREV(bp,p_prev);*/
+    PUT_PREV(bp,p_prev);
     return ;    
 }
 
 
-static void place(void *bp, size_t asize)
+static void *place(void *bp, size_t asize)
 {
     size_t space = GET_SIZE(HDRP(bp));
     if (space - asize >= MIN_SIZE)
     {
-        char *p_tmp = bp + asize; 
-        PUT(HDRP(bp), PACK(asize,PU_U));
-        PUT(HDRP(p_tmp),PACK(space-asize,PU_N));
-        PUT(FTRP(p_tmp),PACK(space-asize,PU_N));
+        if (asize<100)
+        {
+            char *p_tmp = bp + asize; 
+            PUT(HDRP(bp), PACK(asize,PU_U));
+            PUT(HDRP(p_tmp),PACK(space-asize,PU_N));
+            PUT(FTRP(p_tmp),PACK(space-asize,PU_N));
         
 
-        PUT_SUCC(GET_PREV(bp),GET_SUCC(bp));
+            PUT_SUCC(GET_PREV(bp),GET_SUCC(bp));
         
-        if (GET_SUCC(bp))
-        {
-            PUT_PREV(GET_SUCC(bp),GET_PREV(bp));
-        }
+            if (GET_SUCC(bp))
+            {
+                PUT_PREV(GET_SUCC(bp),GET_PREV(bp));
+            }
         
         // if (GET_SUCC(p_tmp))
         // {
         //     PUT_PREV(GET_SUCC(p_tmp), p_tmp);
         // }
         // PUT_SUCC(GET_PREV(p_tmp), p_tmp);
-        PUT_SUCC(p_tmp,NULL);
-        PUT_PREV(p_tmp,NULL);
-        insert_node_level(p_tmp);
+            PUT_SUCC(p_tmp,NULL);
+            PUT_PREV(p_tmp,NULL);
+            insert_node_level(p_tmp);
+        }
+        else 
+        {
+            char *p_tmp = bp;
+            PUT(HDRP(NEXT_BLKP(bp)),(GET(HDRP(NEXT_BLKP(bp))) | MASK_PU ));
+            PUT_SUCC(GET_PREV(p_tmp),GET_SUCC(p_tmp));
+        
+            if (GET_SUCC(p_tmp))
+            {
+                PUT_PREV(GET_SUCC(p_tmp),GET_PREV(p_tmp));
+            }
+            bp = bp+space-asize;
+            PUT(HDRP(bp), PACK(asize, PN_U));
+            PUT(HDRP(p_tmp), PACK(space-asize, PU_N));
+            PUT(FTRP(p_tmp), PACK(space-asize, PU_N));
+
+            
+            PUT_SUCC(p_tmp,NULL);
+            PUT_PREV(p_tmp,NULL);
+            insert_node_level(p_tmp);
+        }
     }
     else
     {
@@ -453,6 +513,7 @@ static void place(void *bp, size_t asize)
         }
         PUT_SUCC(GET_PREV(bp), GET_SUCC(bp));
     }
+    return bp;
 }
 
 static void *find_fit(size_t asize)
@@ -471,6 +532,8 @@ static void *find_fit(size_t asize)
     return NULL;
     
 }
+
+
 
 
 /*
