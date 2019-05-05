@@ -79,7 +79,13 @@
 
 
 /*********************************************************/
-
+team_t team = {
+		"gyx",
+		"gyxshuai",
+		"@",
+		"",
+		""
+};
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *place(void *bp, size_t asize);
