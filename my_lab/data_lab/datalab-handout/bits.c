@@ -134,6 +134,7 @@ NOTES:
 
 
 #endif
+#include <stdio.h>
 //1
 /* 
  * bitXor - x^y using only ~ and & 
@@ -165,6 +166,7 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
+    printf ("%d", !(~(x+x+1)));
     return (!(~(x+x+1)) & !(!(x+1)));
 }
 /* 
@@ -214,7 +216,9 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+    int mask = !!x;
+    mask = ~mask+1;
+    return (mask & y) | (~mask & z);
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -224,7 +228,12 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+    int result = y+~x+1;
+    x=x<<31;
+    y=y<<31;
+    int xor = x^y;
+
+    return ((!xor)&(result << 31)) | (x&~y);
 }
 //4
 /* 
