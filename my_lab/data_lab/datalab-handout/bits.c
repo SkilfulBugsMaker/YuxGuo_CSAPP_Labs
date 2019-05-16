@@ -134,7 +134,6 @@ NOTES:
 
 
 #endif
-#include <stdio.h>
 //1
 /* 
  * bitXor - x^y using only ~ and & 
@@ -166,7 +165,6 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-    printf ("%d", !(~(x+x+1)));
     return (!(~(x+x+1)) & !(!(x+1)));
 }
 /* 
@@ -229,11 +227,10 @@ int conditional(int x, int y, int z) {
  */
 int isLessOrEqual(int x, int y) {
     int result = y+~x+1;
-    x=x<<31;
-    y=y<<31;
-    int xor = x^y;
-
-    return ((!xor)&(result << 31)) | (x&~y);
+    int a=x>>31;
+    int b=y>>31;
+    int xor = a^b;
+    return ((!xor)&!(result >> 31)) | (a&!b);
 }
 //4
 /* 
@@ -245,7 +242,7 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+  return ((x|(~x+1))>>31)+1;
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -275,7 +272,16 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-  return 2;
+    int expo = (uf&0x7f800000)>>23;
+    int sign = uf&(1<<31);
+    if(expo==255)//若为无穷大，返回无穷大
+        return uf;
+    if(expo==0)//若是0
+        return uf<<1|sign;
+    expo++;
+    if(expo==255)//若乘完是无穷大，返回无穷大 
+        return 0x7f800000|sign;
+    return (expo<<23)|(uf&0x807fffff);
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -290,7 +296,16 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  return 2;
+    int S=uf&0x80000000;
+    int expo=(uf&0x7f800000)>>23;
+    int data=(uf&0x0007ffff);
+    int INF=0x80000000;
+    expo=expo-127;
+    if (expo>31)
+        return INF;
+    if (expo <0)
+        return 0;
+    
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -306,5 +321,15 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    int INF = 0x7f800000;
+    int exp = x + 127;
+    if(exp <= 0) 
+    {
+      return 0;
+    }
+    if(exp >= 255) 
+    {
+      return INF;
+    }
+    return exp << 23;
 }
