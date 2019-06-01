@@ -257,6 +257,13 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
+  int t=(1<<31);
+  t=t>>31;//t=0xffffffff
+  unsigned int mask =t;
+  int sign=x>>31;
+  x = (sign&~x)|(~sign&x);
+  int count=32;
+  count=count-!!
   return 0;
 }
 //float
